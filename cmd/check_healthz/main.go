@@ -25,9 +25,9 @@ func main() {
 	var (
 		endpoint = flag.String("endpoint", "", "URL of healthz endpoint to check")
 
-		tlsClientCert       = flag.String("tls-client-cert", "", "path to certificate file used to connect to data_api and control_api")
-		tlsClientKey        = flag.String("tls-client-key", "", "path to private key file used to connect to data_api and control_api")
-		tlsClientRootCaFile = flag.String("tls-client-root-ca-file", "", "path to private certificate authority certificate used to connect to data_api and control_api")
+		tlsClientCert       = flag.String("tls-client-cert", "", "path to certificate file used to connect to endpoint")
+		tlsClientKey        = flag.String("tls-client-key", "", "path to private key file used to connect to endpoint")
+		tlsClientRootCaFile = flag.String("tls-client-root-ca-file", "", "path to private certificate authority certificate used to connect to endpoint")
 	)
 	flag.Parse()
 
