@@ -10,10 +10,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sort"
-	"strings"
 
-	"github.com/jasonhancock/healthz"
+	"github.com/matryer/m"
 )
 
 // Nagios exit code statuses
@@ -24,6 +22,8 @@ func main() {
 
 	var (
 		endpoint = flag.String("endpoint", "", "URL of healthz endpoint to check")
+		key1     = flag.String("key1", "", "key 1 in javascript notation foo.bar.baz")
+		key2     = flag.String("key2", "", "key 2 in javascript notation foo.bar.baz")
 
 		tlsClientCert       = flag.String("tls-client-cert", "", "path to certificate file used to connect to endpoint")
 		tlsClientKey        = flag.String("tls-client-key", "", "path to private key file used to connect to endpoint")
@@ -34,58 +34,41 @@ func main() {
 	if *endpoint == "" {
 		log.Fatal("Set the -endpoint flag")
 	}
+	if *key1 == "" {
+		log.Fatal("Set the -key1 flag")
+	}
+	if *key2 == "" {
+		log.Fatal("Set the -key2 flag")
+	}
 
-	var checksOk []string
-	var checksError []string
-
-	cr, err := fetchHealthz(*endpoint, *tlsClientCert, *tlsClientKey, *tlsClientRootCaFile)
-	if err != nil || cr == nil {
+	data, err := fetchHealthz(*endpoint, *tlsClientCert, *tlsClientKey, *tlsClientRootCaFile)
+	if err != nil || data == nil {
 		fmt.Println("ERROR: Unable to fetch healthz endpoint - ", err)
 		os.Exit(CRITICAL)
 	}
 
-	var status int = OK
-	keys := sortedMapKeys(cr)
-	for _, name := range keys {
-		if cr[name].ErrorMessage != "" {
-			status = CRITICAL
-			checksError = append(checksError, name+": "+cr[name].ErrorMessage)
-		} else {
-			checksOk = append(checksOk, name)
-		}
+	key1value, ok := m.Get(data, *key1).(string)
+	if !ok {
+		fmt.Printf("ERROR: key %s not found or not a string", *key1)
+		os.Exit(CRITICAL)
 	}
 
-	// You get one line of output + the exit code to communicate with Nagios. Build an
-	// informative status message
-	var statusMessage string
-	if len(checksError) > 0 {
-		statusMessage += "ERROR: " + strings.Join(checksError, ", ") + " "
+	key2value, ok := m.Get(data, *key2).(string)
+	if !ok {
+		fmt.Printf("ERROR: key %s not found or not a string", *key2)
+		os.Exit(CRITICAL)
 	}
 
-	if len(checksOk) > 0 {
-		statusMessage += "OK: " + strings.Join(checksOk, ", ")
-	} else {
-		statusMessage += "OK: none"
+	if key1value == key2value {
+		fmt.Printf("OK: %s (%s) == %s (%s)\n", *key1, key1value, *key2, key2value)
+		os.Exit(OK)
 	}
 
-	fmt.Println(statusMessage)
-	os.Exit(status)
+	fmt.Printf("CRITICAL: %s (%s) != %s (%s)\n", *key1, key1value, *key2, key2value)
+	os.Exit(CRITICAL)
 }
 
-func sortedMapKeys(m map[string]healthz.Response) []string {
-	keys := make([]string, len(m))
-
-	i := 0
-	for k := range m {
-		keys[i] = k
-		i++
-	}
-
-	sort.Strings(keys)
-	return keys
-}
-
-func fetchHealthz(endpoint, tlsClientCert, tlsClientKey, tlsClientRootCaFile string) (map[string]healthz.Response, error) {
+func fetchHealthz(endpoint, tlsClientCert, tlsClientKey, tlsClientRootCaFile string) (map[string]interface{}, error) {
 	client := &http.Client{}
 	if tlsClientCert != "" && tlsClientKey != "" && tlsClientRootCaFile != "" {
 		// Load client cert
@@ -122,7 +105,7 @@ func fetchHealthz(endpoint, tlsClientCert, tlsClientKey, tlsClientRootCaFile str
 	}
 	defer resp.Body.Close()
 
-	m := make(map[string]healthz.Response)
+	m := make(map[string]interface{})
 	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
 		return nil, err
 	}
