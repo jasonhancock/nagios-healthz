@@ -111,7 +111,7 @@ func fetchHealthz(endpoint, tlsClientCert, tlsClientKey, tlsClientRootCaFile str
 		client.Transport = &http.Transport{TLSClientConfig: tlsConfig}
 	}
 
-	req, err := http.NewRequest("GET", endpoint, nil)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
