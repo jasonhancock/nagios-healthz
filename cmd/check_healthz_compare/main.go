@@ -14,16 +14,16 @@ import (
 	"github.com/matryer/m"
 )
 
-// Nagios exit code statuses
-const CRITICAL int = 2
-const OK int = 0
-
 func main() {
+	const warning int = 1
+	const critical int = 2
+	const okay int = 0
 
 	var (
 		endpoint = flag.String("endpoint", "", "URL of healthz endpoint to check")
 		key1     = flag.String("key1", "", "key 1 in javascript notation foo.bar.baz")
 		key2     = flag.String("key2", "", "key 2 in javascript notation foo.bar.baz")
+		severity = flag.String("severity", "warning", "Severity of the message if keys do not match.  (warning or critical) default: warning")
 
 		tlsClientCert       = flag.String("tls-client-cert", "", "path to certificate file used to connect to endpoint")
 		tlsClientKey        = flag.String("tls-client-key", "", "path to private key file used to connect to endpoint")
@@ -41,31 +41,39 @@ func main() {
 		log.Fatal("Set the -key2 flag")
 	}
 
+	var exitCode int
+	switch *severity {
+	case "warning":
+		exitCode = warning
+	default:
+		exitCode = critical
+	}
+
 	data, err := fetchHealthz(*endpoint, *tlsClientCert, *tlsClientKey, *tlsClientRootCaFile)
 	if err != nil || data == nil {
 		fmt.Println("ERROR: Unable to fetch healthz endpoint - ", err)
-		os.Exit(CRITICAL)
+		os.Exit(critical)
 	}
 
 	key1value, ok := m.Get(data, *key1).(string)
 	if !ok {
 		fmt.Printf("ERROR: key %s not found or not a string", *key1)
-		os.Exit(CRITICAL)
+		os.Exit(critical)
 	}
 
 	key2value, ok := m.Get(data, *key2).(string)
 	if !ok {
 		fmt.Printf("ERROR: key %s not found or not a string", *key2)
-		os.Exit(CRITICAL)
+		os.Exit(critical)
 	}
 
 	if key1value == key2value {
 		fmt.Printf("OK: %s (%s) == %s (%s)\n", *key1, key1value, *key2, key2value)
-		os.Exit(OK)
+		os.Exit(okay)
 	}
 
-	fmt.Printf("CRITICAL: %s (%s) != %s (%s)\n", *key1, key1value, *key2, key2value)
-	os.Exit(CRITICAL)
+	fmt.Printf("ERR: %s (%s) != %s (%s)\n", *key1, key1value, *key2, key2value)
+	os.Exit(exitCode)
 }
 
 func fetchHealthz(endpoint, tlsClientCert, tlsClientKey, tlsClientRootCaFile string) (map[string]interface{}, error) {
