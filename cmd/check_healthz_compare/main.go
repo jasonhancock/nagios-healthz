@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/matryer/m"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -112,6 +113,10 @@ func fetchHealthz(endpoint, tlsClientCert, tlsClientKey, tlsClientRootCaFile str
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("non-200 http status received: %d", resp.StatusCode)
+	}
 
 	m := make(map[string]interface{})
 	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
